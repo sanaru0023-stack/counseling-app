@@ -39,6 +39,8 @@ const SYSTEM_PROMPT = `あなたは高校生向けの学習塾のカウンセリ
 
 不足情報は「未確認」と記載してください。`;
 
+const FIRST_MESSAGE = "こんにちは！今日はカウンセリングに来てくれてありがとう😊\n\nまず、**今何年生か**と、**通っている学校名**を教えてもらえる？";
+
 export async function POST(req: NextRequest) {
   const { messages } = await req.json();
 
@@ -47,13 +49,38 @@ export async function POST(req: NextRequest) {
     systemInstruction: SYSTEM_PROMPT,
   });
 
-  // Gemini用にメッセージ形式を変換
-  const history = messages.slice(0, -1).map((m: { role: string; content: string }) => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }],
-  }));
-
-  const lastMessage = messages[messages.length - 1].content;
+  // Geminiはhistoryがuser始まりである必要があるため、
+  // assistantの最初のメッセージはhistoryから除外しダミーのuser/modelペアに変換
+  const allMessages = messages as { role: string; content: string }[];
+  
+  // 最後のユーザーメッセージを取得
+  const lastMessage = allMessages[allMessages.length - 1].content;
+  
+  // historyを構築（最初のassistantメッセージをuser/modelペアに変換）
+  const history: { role: string; parts: { text: string }[] }[] = [];
+  
+  const conversationMessages = allMessages.slice(0, -1);
+  
+  if (conversationMessages.length > 0 && conversationMessages[0].role === "assistant") {
+    // 最初のAIメッセージをダミーのuser→modelペアに変換
+    history.push({ role: "user", parts: [{ text: "始めてください" }] });
+    history.push({ role: "model", parts: [{ text: conversationMessages[0].content }] });
+    
+    // 残りのメッセージを追加
+    for (const m of conversationMessages.slice(1)) {
+      history.push({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      });
+    }
+  } else {
+    for (const m of conversationMessages) {
+      history.push({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      });
+    }
+  }
 
   const chat = model.startChat({ history });
   const result = await chat.sendMessage(lastMessage);
