@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 const SYSTEM_PROMPT = `あなたは高校生向けの学習塾のカウンセリングサポートAIです。
 目的は、生徒情報を整理し、塾内管理用データとしてまとめることです。
@@ -41,12 +41,23 @@ const SYSTEM_PROMPT = `あなたは高校生向けの学習塾のカウンセリ
 
 export async function POST(req: NextRequest) {
   const { messages } = await req.json();
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 1000,
-    system: SYSTEM_PROMPT,
-    messages,
+
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash",
+    systemInstruction: SYSTEM_PROMPT,
   });
-  const text = response.content.map((b) => ("text" in b ? b.text : "")).join("");
+
+  // Gemini用にメッセージ形式を変換
+  const history = messages.slice(0, -1).map((m: { role: string; content: string }) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+
+  const lastMessage = messages[messages.length - 1].content;
+
+  const chat = model.startChat({ history });
+  const result = await chat.sendMessage(lastMessage);
+  const text = result.response.text();
+
   return NextResponse.json({ text });
 }

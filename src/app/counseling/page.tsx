@@ -40,16 +40,19 @@ function CounselingChat() {
       const data = await res.json();
       const text: string = data.text || "";
       try {
-        const parsed = JSON.parse(text);
-        if (parsed.summary) {
-          await fetch("/api/students", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: studentName, data: parsed.data }),
-          });
-          setDone(true);
-          setLoading(false);
-          return;
+        const jsonMatch = text.match(/\{[\s\S]*"summary"[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.summary) {
+            await fetch("/api/students", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name: studentName, data: parsed.data }),
+            });
+            setDone(true);
+            setLoading(false);
+            return;
+          }
         }
       } catch (_) {}
       setMessages(prev => [...prev, { role: "assistant", content: text }]);
