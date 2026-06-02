@@ -1,8 +1,3 @@
-import fs from "fs";
-import path from "path";
-
-const DATA_FILE = path.join(process.cwd(), "data", "students.json");
-
 export type StudentRecord = {
   id: string;
   name: string;
@@ -10,20 +5,38 @@ export type StudentRecord = {
   data: Record<string, string>;
 };
 
-function ensureFile() {
-  const dir = path.dirname(DATA_FILE);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, "[]", "utf-8");
+const SUPABASE_URL = process.env.SUPABASE_URL!;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!;
+
+async function supabase(method: string, body?: object) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/students`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": SUPABASE_SERVICE_KEY,
+      "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+      "Prefer": method === "POST" ? "return=minimal" : "",
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return res;
 }
 
-export function loadStudents(): StudentRecord[] {
-  ensureFile();
-  return JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
+export async function loadStudents(): Promise<StudentRecord[]> {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/students?order=date.desc`, {
+    headers: {
+      "apikey": SUPABASE_SERVICE_KEY,
+      "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+    },
+  });
+  if (!res.ok) return [];
+  return res.json();
 }
 
-export function saveStudent(record: StudentRecord) {
-  ensureFile();
-  const students = loadStudents();
-  students.push(record);
-  fs.writeFileSync(DATA_FILE, JSON.stringify(students, null, 2), "utf-8");
+export async function saveStudent(record: Omit<StudentRecord, "id">) {
+  await supabase("POST", {
+    name: record.name,
+    date: record.date,
+    data: record.data,
+  });
 }
