@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-const FIRST_MESSAGE = "こんにちは！今日はカウンセリングに来てくれてありがとう😊\n\nまず、**今何年生か**と、**通っている学校名**を教えてもらえる？";
+const FIRST_MESSAGE = "こんにちは！ここは事前カウンセリングになります！\n\n今回は定期テストについて聞いていきます。**定期テストの感想**と、**反省点**を教えてもらえる？";
 
 function renderContent(text: string) {
   return text.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
